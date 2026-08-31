@@ -11,8 +11,10 @@
   const list = document.getElementById("school-listbox");
 
   const MAX_RESULTS = 8;
+  let activeIndex = -1;
 
   function renderOptions(query) {
+    activeIndex = -1;
     const q = query.trim().toLowerCase();
     let matches;
 
@@ -40,6 +42,7 @@
         const li = document.createElement("li");
         li.className = "combobox-option";
         li.setAttribute("role", "option");
+        li.tabIndex = -1;
         li.dataset.id = u.id;
         li.dataset.name = u.name;
         li.innerHTML =
@@ -52,6 +55,7 @@
     const otherLi = document.createElement("li");
     otherLi.className = "combobox-option combobox-other";
     otherLi.setAttribute("role", "option");
+    otherLi.tabIndex = -1;
     otherLi.dataset.id = "other";
     otherLi.dataset.name = "Other / not listed";
     otherLi.innerHTML = '<span class="opt-name">Other / not listed</span>';
@@ -59,6 +63,20 @@
 
     list.hidden = false;
     input.setAttribute("aria-expanded", "true");
+  }
+
+  function getOptionEls() {
+    return Array.from(list.querySelectorAll(".combobox-option"));
+  }
+
+  function setActive(index) {
+    const opts = getOptionEls();
+    opts.forEach(function (el) { el.classList.remove("is-active"); });
+    if (opts[index]) {
+      opts[index].classList.add("is-active");
+      opts[index].scrollIntoView({ block: "nearest" });
+    }
+    activeIndex = index;
   }
 
   function selectOption(li) {
@@ -69,6 +87,7 @@
 
   function closeList() {
     list.hidden = true;
+    activeIndex = -1;
     input.setAttribute("aria-expanded", "false");
   }
 
@@ -77,6 +96,7 @@
   });
 
   input.addEventListener("input", function () {
+    // Typing again invalidates any prior selection (including "Other").
     hidden.value = "";
     renderOptions(input.value);
   });
@@ -91,6 +111,29 @@
   });
 
   input.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closeList();
+    const opts = getOptionEls();
+
+    if (e.key === "Escape") {
+      closeList();
+      return;
+    }
+
+    if (list.hidden && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      renderOptions(input.value);
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive(Math.min(activeIndex + 1, opts.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive(Math.max(activeIndex - 1, 0));
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && opts[activeIndex]) {
+        e.preventDefault();
+        selectOption(opts[activeIndex]);
+      }
+    }
   });
 })();

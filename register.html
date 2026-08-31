@@ -24,10 +24,11 @@
     <h1 class="auth-title">Create your account</h1>
     <p class="auth-sub">Join students already using uniVERSE to learn, gist, and connect.</p>
 
-    <form class="auth-form" novalidate>
+    <form class="auth-form" id="register-form" novalidate>
       <label class="field">
         <span class="field-label">Full name</span>
-        <input type="text" name="fullname" placeholder="e.g. Marvellous Udoko" required autocomplete="name">
+        <input type="text" id="fullname" name="fullname" placeholder="e.g. Marvellous Udoko" required autocomplete="name">
+        <span class="field-error" id="fullname-error"></span>
       </label>
 
       <label class="field">
@@ -47,26 +48,31 @@
           <input type="hidden" name="school" id="school-value" required>
           <ul class="combobox-list" id="school-listbox" role="listbox" hidden></ul>
         </div>
+        <span class="field-error" id="school-error"></span>
       </label>
 
       <label class="field">
         <span class="field-label">Phone number</span>
-        <input type="tel" name="phone" placeholder="08xxxxxxxxx" required autocomplete="tel" inputmode="numeric">
+        <input type="tel" id="phone" name="phone" placeholder="08xxxxxxxxx" required autocomplete="tel" inputmode="numeric">
+        <span class="field-error" id="phone-error"></span>
       </label>
 
       <label class="field">
         <span class="field-label">Email <span class="optional-tag">(optional)</span></span>
-        <input type="email" name="email" placeholder="you@example.com" autocomplete="email">
+        <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email">
+        <span class="field-error" id="email-error"></span>
       </label>
 
       <label class="field">
         <span class="field-label">Password</span>
-        <input type="password" name="password" placeholder="At least 8 characters" required autocomplete="new-password" minlength="8">
+        <input type="password" id="password" name="password" placeholder="At least 8 characters" required autocomplete="new-password" minlength="8">
+        <span class="field-error" id="password-error"></span>
       </label>
 
       <label class="field">
         <span class="field-label">Confirm password</span>
-        <input type="password" name="confirm_password" placeholder="Re-enter your password" required autocomplete="new-password" minlength="8">
+        <input type="password" id="confirm-password" name="confirm_password" placeholder="Re-enter your password" required autocomplete="new-password" minlength="8">
+        <span class="field-hint" id="confirm-password-hint"></span>
       </label>
 
       <button type="submit" class="btn btn-primary btn-block">Register</button>
@@ -92,5 +98,6 @@
 
 <script src="universities.js"></script>
 <script src="school-combobox.js"></script>
+<script src="register-form.js"></script>
 </body>
 </html>
