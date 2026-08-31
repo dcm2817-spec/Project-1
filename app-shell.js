@@ -176,11 +176,21 @@
         '<a href="#" class="profile-link">Saved materials</a>' +
         '<a href="#" class="profile-link">My connections</a>' +
         '<a href="#" class="profile-link">Settings</a>' +
-        '<a href="login.html" class="profile-link profile-link-danger">Log out</a>' +
+        '<a href="login.html" id="logout-link" class="profile-link profile-link-danger">Log out</a>' +
       '</div>';
 
     return wrap;
   }
+
+  // Wire logout after render, since the link is created dynamically above.
+  document.addEventListener("click", function (e) {
+    if (e.target && e.target.id === "logout-link") {
+      e.preventDefault();
+      supabaseClient.auth.signOut().finally(function () {
+        window.location.href = "login.html";
+      });
+    }
+  });
 
   // Initial view
   showView("feed");
