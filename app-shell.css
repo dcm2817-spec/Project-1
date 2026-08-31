@@ -1,0 +1,362 @@
+/* ============================================================
+   uniVERSE — app shell
+   Layout: fixed header + scrollable view + fixed bottom nav
+   ============================================================ */
+
+.app-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: 64px; /* space for bottom nav */
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--card-line);
+}
+
+.wordmark-sm {
+  font-size: 20px;
+}
+
+.app-header-icon {
+  background: none;
+  border: none;
+  color: var(--oxblood);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+}
+
+.app-view {
+  flex: 1;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.view-inner {
+  padding: 18px 18px 32px;
+}
+
+.view-heading h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.view-heading p {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
+
+/* ---------- Bottom nav ---------- */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  background: var(--bg);
+  border-top: 1px solid var(--card-line);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 11px;
+}
+
+.nav-icon {
+  color: inherit;
+}
+
+.nav-item.is-active {
+  color: var(--oxblood);
+}
+
+.nav-item.is-active .nav-icon {
+  color: var(--wine);
+}
+
+/* ---------- Feed ---------- */
+
+.join-banner {
+  background: var(--oxblood);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin-bottom: 18px;
+}
+
+.feed-card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 4px;
+  padding: 16px 16px 14px;
+  margin-bottom: 14px;
+}
+
+.feed-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.feed-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 10px;
+  color: var(--bg);
+  background: var(--wine);
+}
+
+.feed-tag-material { background: #3E6B5C; }
+.feed-tag-discussion { background: #4A5A8A; }
+.feed-tag-event { background: var(--oxblood); }
+.feed-tag-group { background: #8A5A3E; }
+
+.feed-school {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.feed-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.feed-time {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.feed-text {
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.feed-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+
+.feed-actions {
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ---------- Materials ---------- */
+
+.materials-search {
+  width: 100%;
+  background: var(--card);
+  border: 1.5px solid var(--card-line);
+  border-radius: 3px;
+  padding: 11px 13px;
+  font-size: 16px;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+
+.materials-search:focus {
+  border-color: var(--wine);
+}
+
+.material-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.material-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+
+.material-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.material-downloads {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--wine);
+  white-space: nowrap;
+}
+
+.empty-state {
+  font-size: 13px;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* ---------- Connect ---------- */
+
+.connect-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.connect-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--oxblood);
+  color: var(--bg);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.connect-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.connect-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.connect-school {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 2px;
+}
+
+.connect-shared {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* ---------- Profile ---------- */
+
+.profile-card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 4px;
+  padding: 28px 20px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--oxblood);
+  color: var(--bg);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+.profile-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.profile-school {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+
+.profile-links {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.profile-link {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--ink);
+  border-bottom: 1px solid var(--card-line);
+}
+
+.profile-link:last-child {
+  border-bottom: none;
+}
+
+.profile-link-danger {
+  color: var(--wine);
+}
