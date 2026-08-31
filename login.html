@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log in — uniVERSE</title>
+<meta name="description" content="Log in to your uniVERSE account.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a href="index.html" class="wordmark" aria-label="uniVERSE home">
+    <span class="u">u</span><span class="n">n</span><span class="i">i</span><span class="v-cap">V</span><span class="rest">erse</span>
+  </a>
+  <nav class="header-actions">
+    <span class="auth-hint">New here? <a href="register.html">Register</a></span>
+  </nav>
+</header>
+
+<main class="auth-wrap">
+  <section class="auth-card">
+    <span class="eyebrow">welcome back</span>
+    <h1 class="auth-title">Log in</h1>
+    <p class="auth-sub">Pick up where you left off.</p>
+
+    <form class="auth-form" id="login-form" novalidate>
+      <label class="field">
+        <span class="field-label">Phone number</span>
+        <input type="tel" id="phone" name="phone" placeholder="08xxxxxxxxx" required autocomplete="tel" inputmode="numeric">
+        <span class="field-error" id="phone-error"></span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Password</span>
+        <input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
+        <span class="field-error" id="password-error"></span>
+      </label>
+
+      <a href="forgot-password.html" class="forgot-link">Forgot password?</a>
+
+      <button type="submit" class="btn btn-primary btn-block">Log in</button>
+    </form>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-box">
+    <div class="footer-meta">
+      <div class="footer-copyright">Copyright &copy; 2027 uniVERSE. All Rights Reserved.</div>
+      08xxxxxxxxx · 09xxxxxxxxx
+    </div>
+    <div class="footer-social">
+      <a href="#" target="_blank" rel="noopener">Facebook</a>
+      <a href="#" target="_blank" rel="noopener">Instagram</a>
+      <a href="#" target="_blank" rel="noopener">Discord</a>
+    </div>
+  </div>
+</footer>
+
+<script src="login-form.js"></script>
+</body>
+</html>
