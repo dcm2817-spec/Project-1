@@ -176,7 +176,7 @@
         '<a href="#" class="profile-link">Saved materials</a>' +
         '<a href="#" class="profile-link">My connections</a>' +
         '<a href="#" class="profile-link">Settings</a>' +
-        '<a href="index.html" class="profile-link profile-link-danger">Log out</a>' +
+        '<a href="login.html" class="profile-link profile-link-danger">Log out</a>' +
       '</div>';
 
     return wrap;
