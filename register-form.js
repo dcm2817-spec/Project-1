@@ -107,7 +107,7 @@
     setTimeout(validateSchool, 150);
   });
 
-  form.addEventListener("submit", function (e) {
+  form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
     const checks = [
@@ -119,13 +119,48 @@
       checkPasswordMatch(),
     ];
 
-    if (checks.every(Boolean)) {
-      // Backend not wired yet — once Supabase Auth is connected, this
-      // redirect happens after the account is actually created.
-      window.location.href = "app.html";
-    } else {
+    if (!checks.every(Boolean)) {
       const firstInvalid = form.querySelector(".is-invalid");
       if (firstInvalid) firstInvalid.focus();
+      return;
     }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating account...";
+
+    const phoneValue = phone.value.trim();
+    // Supabase Auth needs an email internally — phone is the identifier
+    // the user actually sees and types, so we synthesize a stable
+    // internal email from it. Real optional email is stored separately
+    // on the profile via raw_user_meta_data.real_email.
+    const authEmail = phoneValue + "@universe.local";
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: authEmail,
+      password: password.value,
+      options: {
+        data: {
+          full_name: fullname.value.trim(),
+          phone: phoneValue,
+          real_email: email.value.trim() || null,
+          school_id: schoolValue.value,
+          school_name: schoolSearch.value,
+        },
+      },
+    });
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Register";
+
+    if (error) {
+      const el = document.getElementById("phone-error");
+      setError(phone, el, "Something went wrong: " + error.message);
+      return;
+    }
+
+    // Account created — the handle_new_user trigger in Supabase has
+    // already inserted the matching row into public.profiles.
+    window.location.href = "app.html";
   });
 })();
