@@ -3,6 +3,10 @@
    Layout: fixed header + scrollable view + fixed bottom nav
    ============================================================ */
 
+[hidden] {
+  display: none !important;
+}
+
 .app-body {
   display: flex;
   flex-direction: column;
@@ -186,6 +190,60 @@
 
 /* ---------- Materials ---------- */
 
+.add-material-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1.5px dashed var(--card-line);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--oxblood);
+  font-family: var(--font-body);
+}
+
+.add-material-plus {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--oxblood);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.upload-form {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upload-form input[type="file"] {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .materials-search {
   width: 100%;
   background: var(--card);
@@ -211,6 +269,12 @@
   border-radius: 4px;
   padding: 14px 16px;
   margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.material-card:hover {
+  border-color: var(--wine);
 }
 
 .material-title {
