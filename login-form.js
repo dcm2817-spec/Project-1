@@ -1,14 +1,16 @@
 // uniVERSE — login form validation
-// Custom inline error messages, matching the register form's pattern.
+// Email is the account's real identifier now (needed for password
+// reset to work), so login signs in directly with it — no phone
+// lookup needed here anymore.
 
 (function () {
   const form = document.getElementById("login-form");
   if (!form) return;
 
-  const phone = document.getElementById("phone");
+  const email = document.getElementById("email");
   const password = document.getElementById("password");
 
-  const NIGERIA_PHONE = /^0\d{10}$/;
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   function setError(input, errorEl, message) {
     if (message) {
@@ -20,15 +22,15 @@
     }
   }
 
-  function validatePhone() {
-    const el = document.getElementById("phone-error");
-    const val = phone.value.trim();
-    if (!val) return (setError(phone, el, "Enter your phone number"), false);
-    if (!NIGERIA_PHONE.test(val)) {
-      setError(phone, el, "Enter an 11-digit number starting with 0");
+  function validateEmail() {
+    const el = document.getElementById("email-error");
+    const val = email.value.trim();
+    if (!val) return (setError(email, el, "Enter your email"), false);
+    if (!EMAIL_RE.test(val)) {
+      setError(email, el, "That email doesn't look right");
       return false;
     }
-    setError(phone, el, "");
+    setError(email, el, "");
     return true;
   }
 
@@ -39,13 +41,13 @@
     return true;
   }
 
-  phone.addEventListener("blur", validatePhone);
+  email.addEventListener("blur", validateEmail);
   password.addEventListener("blur", validatePassword);
 
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    const checks = [validatePhone(), validatePassword()];
+    const checks = [validateEmail(), validatePassword()];
 
     if (!checks.every(Boolean)) {
       const firstInvalid = form.querySelector(".is-invalid");
@@ -57,11 +59,8 @@
     submitBtn.disabled = true;
     submitBtn.textContent = "Logging in...";
 
-    const phoneValue = phone.value.trim();
-    const authEmail = phoneValue + "@universe.local"; // same synthesis used at register time
-
     const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email: authEmail,
+      email: email.value.trim(),
       password: password.value,
     });
 
@@ -70,7 +69,7 @@
 
     if (error) {
       const el = document.getElementById("password-error");
-      setError(password, el, "Phone number or password is incorrect");
+      setError(password, el, "Email or password is incorrect");
       return;
     }
 
