@@ -349,18 +349,164 @@
     wrap.className = "view-inner";
 
     wrap.innerHTML =
-      '<div class="profile-card">' +
-        '<div class="profile-avatar">U</div>' +
-        '<p class="profile-name">Your name</p>' +
-        '<p class="profile-school">Your school</p>' +
-        '<button class="btn btn-ghost btn-sm">Edit profile</button>' +
+      '<div class="profile-card" id="profile-display">' +
+        '<div class="profile-avatar" id="profile-avatar">U</div>' +
+        '<p class="profile-name" id="profile-name">Loading...</p>' +
+        '<p class="profile-school" id="profile-school-display"></p>' +
+        '<button class="btn btn-ghost btn-sm" id="edit-profile-toggle">Edit profile</button>' +
       '</div>' +
+      '<form class="upload-form" id="edit-profile-form" hidden>' +
+        '<label class="field">' +
+          '<span class="field-label">Full name</span>' +
+          '<input type="text" id="edit-fullname" required>' +
+          '<span class="field-error" id="edit-fullname-error"></span>' +
+        '</label>' +
+        '<label class="field">' +
+          '<span class="field-label">Profile photo</span>' +
+          '<input type="file" id="edit-avatar" accept="image/*">' +
+          '<span class="field-error" id="edit-avatar-error"></span>' +
+        '</label>' +
+        '<div class="upload-actions">' +
+          '<button type="button" class="btn btn-ghost btn-sm" id="edit-cancel">Cancel</button>' +
+          '<button type="submit" class="btn btn-primary btn-sm" id="edit-submit">Save</button>' +
+        '</div>' +
+      '</form>' +
       '<div class="profile-links">' +
         '<a href="#" class="profile-link">Saved materials</a>' +
         '<a href="#" class="profile-link">My connections</a>' +
         '<a href="#" class="profile-link">Settings</a>' +
         '<a href="login.html" id="logout-link" class="profile-link profile-link-danger">Log out</a>' +
       '</div>';
+
+    const nameEl = wrap.querySelector("#profile-name");
+    const schoolEl = wrap.querySelector("#profile-school-display");
+    const avatarEl = wrap.querySelector("#profile-avatar");
+    const editToggle = wrap.querySelector("#edit-profile-toggle");
+    const editForm = wrap.querySelector("#edit-profile-form");
+    const editNameInput = wrap.querySelector("#edit-fullname");
+    const displayCard = wrap.querySelector("#profile-display");
+
+    let currentUser = null;
+    let currentProfile = null;
+
+    function paintAvatar(url, name) {
+      if (url) {
+        avatarEl.innerHTML = '<img src="' + url + '" alt="Profile photo" class="profile-avatar-img">';
+      } else {
+        avatarEl.textContent = (name || "U").charAt(0).toUpperCase();
+      }
+    }
+
+    async function loadProfile() {
+      const { data: userRes } = await supabaseClient.auth.getUser();
+      currentUser = userRes.user;
+      if (!currentUser) return;
+
+      const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("full_name, school_name, avatar_url")
+        .eq("id", currentUser.id)
+        .single();
+
+      if (error || !data) {
+        nameEl.textContent = "Couldn\u2019t load profile";
+        return;
+      }
+
+      currentProfile = data;
+      nameEl.textContent = data.full_name;
+      schoolEl.textContent = data.school_name || "";
+      editNameInput.value = data.full_name;
+      paintAvatar(data.avatar_url, data.full_name);
+    }
+
+    loadProfile();
+
+    editToggle.addEventListener("click", function () {
+      editForm.hidden = false;
+      displayCard.hidden = true;
+    });
+
+    wrap.querySelector("#edit-cancel").addEventListener("click", function () {
+      editForm.hidden = true;
+      displayCard.hidden = false;
+    });
+
+    editForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const nameError = wrap.querySelector("#edit-fullname-error");
+      const avatarError = wrap.querySelector("#edit-avatar-error");
+      nameError.textContent = "";
+      avatarError.textContent = "";
+
+      const newName = editNameInput.value.trim();
+      if (!newName) {
+        nameError.textContent = "Name can't be empty";
+        return;
+      }
+
+      const submitBtn = wrap.querySelector("#edit-submit");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Saving...";
+
+      let newAvatarUrl = currentProfile ? currentProfile.avatar_url : null;
+      const fileInput = wrap.querySelector("#edit-avatar");
+      const file = fileInput.files[0];
+
+      if (file) {
+        if (!file.type.startsWith("image/")) {
+          avatarError.textContent = "Choose an image file";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Save";
+          return;
+        }
+
+        const ext = file.name.split(".").pop();
+        const path = currentUser.id + "/avatar." + ext;
+
+        const { error: uploadError } = await supabaseClient
+          .storage
+          .from("avatars")
+          .upload(path, file, { upsert: true });
+
+        if (uploadError) {
+          avatarError.textContent = "Photo upload failed: " + uploadError.message;
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Save";
+          return;
+        }
+
+        const { data: publicUrlData } = supabaseClient
+          .storage
+          .from("avatars")
+          .getPublicUrl(path);
+
+        // Cache-bust so the new photo shows immediately instead of a
+        // cached copy of the old one at the same path.
+        newAvatarUrl = publicUrlData.publicUrl + "?t=" + Date.now();
+      }
+
+      const { error: updateError } = await supabaseClient
+        .from("profiles")
+        .update({ full_name: newName, avatar_url: newAvatarUrl })
+        .eq("id", currentUser.id);
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Save";
+
+      if (updateError) {
+        nameError.textContent = "Something went wrong saving. Try again.";
+        return;
+      }
+
+      currentProfile = { full_name: newName, school_name: schoolEl.textContent, avatar_url: newAvatarUrl };
+      nameEl.textContent = newName;
+      paintAvatar(newAvatarUrl, newName);
+
+      editForm.hidden = true;
+      displayCard.hidden = false;
+    });
 
     return wrap;
   }
