@@ -320,24 +320,211 @@
     wrap.className = "view-inner";
 
     wrap.innerHTML =
-      '<div class="view-heading"><h2>Connect</h2><p>Suggested based on your interests and school.</p></div>' +
-      '<div class="connect-list"></div>';
+      '<div class="view-heading"><h2>Connect</h2><p>People from your school on uniVERSE.</p></div>' +
+      '<div id="requests-section"></div>' +
+      '<div id="connected-section"></div>' +
+      '<h3 class="connect-subheading">Suggested</h3>' +
+      '<div class="connect-list" id="suggested-list"><p class="empty-state">Loading...</p></div>';
 
-    const list = wrap.querySelector(".connect-list");
+    const requestsSection = wrap.querySelector("#requests-section");
+    const connectedSection = wrap.querySelector("#connected-section");
+    const suggestedList = wrap.querySelector("#suggested-list");
 
-    SEED_CONNECTIONS.forEach(function (c) {
+    let currentUser = null;
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str || "";
+      return div.innerHTML;
+    }
+
+    function personCard(person, actionsHtml) {
       const card = document.createElement("div");
       card.className = "connect-card";
       card.innerHTML =
-        '<div class="connect-avatar">' + c.name.charAt(0) + '</div>' +
+        '<div class="connect-avatar">' + (person.full_name || "?").charAt(0).toUpperCase() + '</div>' +
         '<div class="connect-info">' +
-          '<p class="connect-name">' + c.name + '</p>' +
-          '<p class="connect-school">' + c.school + '</p>' +
-          '<p class="connect-shared">Shared: ' + c.shared + '</p>' +
+          '<p class="connect-name">' + escapeHtml(person.full_name) + '</p>' +
+          '<p class="connect-school">' + escapeHtml(person.school_name || "") + '</p>' +
         '</div>' +
-        '<button class="btn btn-ghost btn-sm">Connect</button>';
-      list.appendChild(card);
-    });
+        '<div class="connect-actions">' + actionsHtml + '</div>';
+      return card;
+    }
+
+    async function loadConnectData() {
+      const { data: userRes } = await supabaseClient.auth.getUser();
+      currentUser = userRes.user;
+      if (!currentUser) return;
+
+      const { data: myProfile } = await supabaseClient
+        .from("profiles")
+        .select("school_id")
+        .eq("id", currentUser.id)
+        .single();
+
+      const mySchoolId = myProfile ? myProfile.school_id : null;
+
+      const { data: myConnections } = await supabaseClient
+        .from("connections")
+        .select("id, requester_id, receiver_id, status")
+        .or("requester_id.eq." + currentUser.id + ",receiver_id.eq." + currentUser.id);
+
+      const rows = myConnections || [];
+
+      // Anyone already involved in a connection row, regardless of
+      // status, is excluded from "Suggested" — pending/accepted/declined
+      // are all shown in their own section instead of being re-suggested.
+      const excludeIds = new Set();
+      const incomingRequests = []; // { connectionId, otherId }
+      const connectedIds = [];
+
+      rows.forEach(function (row) {
+        const otherId = row.requester_id === currentUser.id ? row.receiver_id : row.requester_id;
+        excludeIds.add(otherId);
+        if (row.status === "accepted") {
+          connectedIds.push(otherId);
+        } else if (row.status === "pending" && row.receiver_id === currentUser.id) {
+          incomingRequests.push({ connectionId: row.id, otherId: otherId });
+        }
+      });
+
+      // Fetch profile details for anyone we need to display: incoming
+      // requesters + accepted connections.
+      const neededIds = incomingRequests.map(function (r) { return r.otherId; }).concat(connectedIds);
+      let otherProfiles = {};
+      if (neededIds.length > 0) {
+        const { data: profilesData } = await supabaseClient
+          .from("profiles")
+          .select("id, full_name, school_name")
+          .in("id", neededIds);
+        (profilesData || []).forEach(function (p) { otherProfiles[p.id] = p; });
+      }
+
+      renderRequests(incomingRequests, otherProfiles);
+      renderConnected(connectedIds, otherProfiles);
+      loadSuggested(excludeIds, mySchoolId);
+    }
+
+    function renderRequests(incomingRequests, otherProfiles) {
+      requestsSection.innerHTML = "";
+      if (incomingRequests.length === 0) return;
+
+      const heading = document.createElement("h3");
+      heading.className = "connect-subheading";
+      heading.textContent = "Requests";
+      requestsSection.appendChild(heading);
+
+      incomingRequests.forEach(function (req) {
+        const person = otherProfiles[req.otherId];
+        if (!person) return;
+        const card = personCard(person,
+          '<button class="btn btn-primary btn-sm accept-btn">Accept</button>' +
+          '<button class="btn btn-ghost btn-sm decline-btn">Decline</button>'
+        );
+        card.querySelector(".accept-btn").addEventListener("click", function () {
+          respondToRequest(req.connectionId, "accepted");
+        });
+        card.querySelector(".decline-btn").addEventListener("click", function () {
+          respondToRequest(req.connectionId, "declined");
+        });
+        requestsSection.appendChild(card);
+      });
+    }
+
+    function renderConnected(connectedIds, otherProfiles) {
+      connectedSection.innerHTML = "";
+      if (connectedIds.length === 0) return;
+
+      const heading = document.createElement("h3");
+      heading.className = "connect-subheading";
+      heading.textContent = "Your connections";
+      connectedSection.appendChild(heading);
+
+      connectedIds.forEach(function (id) {
+        const person = otherProfiles[id];
+        if (!person) return;
+        const card = personCard(person, '<span class="connected-badge">Connected</span>');
+        connectedSection.appendChild(card);
+      });
+    }
+
+    async function loadSuggested(excludeIds, mySchoolId) {
+      const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("id, full_name, school_id, school_name")
+        .neq("id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (error) {
+        suggestedList.innerHTML = '<p class="empty-state">Couldn\u2019t load suggestions right now.</p>';
+        return;
+      }
+
+      const filtered = (data || []).filter(function (p) { return !excludeIds.has(p.id); });
+
+      // Same-school people surface first.
+      filtered.sort(function (a, b) {
+        const aMatch = a.school_id === mySchoolId ? 0 : 1;
+        const bMatch = b.school_id === mySchoolId ? 0 : 1;
+        return aMatch - bMatch;
+      });
+
+      suggestedList.innerHTML = "";
+
+      if (filtered.length === 0) {
+        suggestedList.innerHTML = '<p class="empty-state">No new suggestions right now — check back soon.</p>';
+        return;
+      }
+
+      filtered.forEach(function (person) {
+        const sameSchool = person.school_id === mySchoolId;
+        const card = personCard(person,
+          '<button class="btn btn-ghost btn-sm connect-btn">Connect</button>'
+        );
+        if (sameSchool) {
+          const tag = document.createElement("span");
+          tag.className = "same-school-tag";
+          tag.textContent = "Same school";
+          card.querySelector(".connect-info").appendChild(tag);
+        }
+        const btn = card.querySelector(".connect-btn");
+        btn.addEventListener("click", function () {
+          sendRequest(person.id, btn);
+        });
+        suggestedList.appendChild(card);
+      });
+    }
+
+    async function sendRequest(receiverId, btn) {
+      btn.disabled = true;
+      btn.textContent = "Sending...";
+
+      const { error } = await supabaseClient.from("connections").insert({
+        requester_id: currentUser.id,
+        receiver_id: receiverId,
+        status: "pending",
+      });
+
+      if (error) {
+        btn.disabled = false;
+        btn.textContent = "Connect";
+        return;
+      }
+
+      btn.textContent = "Requested";
+    }
+
+    async function respondToRequest(connectionId, status) {
+      await supabaseClient
+        .from("connections")
+        .update({ status: status })
+        .eq("id", connectionId);
+
+      loadConnectData();
+    }
+
+    loadConnectData();
 
     return wrap;
   }
@@ -349,34 +536,52 @@
     wrap.className = "view-inner";
 
     wrap.innerHTML =
-      '<div class="profile-card" id="profile-display">' +
-        '<div class="profile-avatar" id="profile-avatar">U</div>' +
-        '<p class="profile-name" id="profile-name">Loading...</p>' +
-        '<p class="profile-school" id="profile-school-display"></p>' +
-        '<button class="btn btn-ghost btn-sm" id="edit-profile-toggle">Edit profile</button>' +
-      '</div>' +
-      '<form class="upload-form" id="edit-profile-form" hidden>' +
-        '<label class="field">' +
-          '<span class="field-label">Full name</span>' +
-          '<input type="text" id="edit-fullname" required>' +
-          '<span class="field-error" id="edit-fullname-error"></span>' +
-        '</label>' +
-        '<label class="field">' +
-          '<span class="field-label">Profile photo</span>' +
-          '<input type="file" id="edit-avatar" accept="image/*">' +
-          '<span class="field-error" id="edit-avatar-error"></span>' +
-        '</label>' +
-        '<div class="upload-actions">' +
-          '<button type="button" class="btn btn-ghost btn-sm" id="edit-cancel">Cancel</button>' +
-          '<button type="submit" class="btn btn-primary btn-sm" id="edit-submit">Save</button>' +
+      '<div id="profile-main">' +
+        '<div class="profile-card" id="profile-display">' +
+          '<div class="profile-avatar" id="profile-avatar">U</div>' +
+          '<p class="profile-name" id="profile-name">Loading...</p>' +
+          '<p class="profile-school" id="profile-school-display"></p>' +
+          '<button class="btn btn-ghost btn-sm" id="edit-profile-toggle">Edit profile</button>' +
         '</div>' +
-      '</form>' +
-      '<div class="profile-links">' +
-        '<a href="#" class="profile-link">Saved materials</a>' +
-        '<a href="#" class="profile-link">My connections</a>' +
-        '<a href="#" class="profile-link">Settings</a>' +
-        '<a href="login.html" id="logout-link" class="profile-link profile-link-danger">Log out</a>' +
-      '</div>';
+        '<form class="upload-form" id="edit-profile-form" hidden>' +
+          '<label class="field">' +
+            '<span class="field-label">Full name</span>' +
+            '<input type="text" id="edit-fullname" required>' +
+            '<span class="field-error" id="edit-fullname-error"></span>' +
+          '</label>' +
+          '<label class="field">' +
+            '<span class="field-label">Profile photo</span>' +
+            '<input type="file" id="edit-avatar" accept="image/*">' +
+            '<span class="field-error" id="edit-avatar-error"></span>' +
+          '</label>' +
+          '<label class="field">' +
+            '<span class="field-label">Faculty <span class="optional-tag">(optional)</span></span>' +
+            '<input type="text" id="edit-faculty" placeholder="e.g. Engineering">' +
+          '</label>' +
+          '<label class="field">' +
+            '<span class="field-label">Department <span class="optional-tag">(optional)</span></span>' +
+            '<input type="text" id="edit-department" placeholder="e.g. Geomatics Engineering">' +
+          '</label>' +
+          '<label class="field">' +
+            '<span class="field-label">Level <span class="optional-tag">(optional)</span></span>' +
+            '<input type="text" id="edit-level" placeholder="e.g. 200L">' +
+          '</label>' +
+          '<div class="field-label" style="margin-top: 6px;">Interests (up to 5)</div>' +
+          '<div id="edit-interests-container"></div>' +
+          '<div class="upload-actions">' +
+            '<button type="button" class="btn btn-ghost btn-sm" id="edit-cancel">Cancel</button>' +
+            '<button type="submit" class="btn btn-primary btn-sm" id="edit-submit">Save</button>' +
+          '</div>' +
+        '</form>' +
+        '<div class="profile-links">' +
+          '<a href="#" class="profile-link">Saved materials</a>' +
+          '<a href="#" class="profile-link">My connections</a>' +
+          '<a href="#" class="profile-link" id="my-groups-link">My groups</a>' +
+          '<a href="#" class="profile-link">Settings</a>' +
+          '<a href="login.html" id="logout-link" class="profile-link profile-link-danger">Log out</a>' +
+        '</div>' +
+      '</div>' +
+      '<div id="groups-view" hidden></div>';
 
     const nameEl = wrap.querySelector("#profile-name");
     const schoolEl = wrap.querySelector("#profile-school-display");
@@ -388,6 +593,8 @@
 
     let currentUser = null;
     let currentProfile = null;
+    let interestPicker = null;
+    let savedInterestIds = [];
 
     function paintAvatar(url, name) {
       if (url) {
@@ -404,7 +611,7 @@
 
       const { data, error } = await supabaseClient
         .from("profiles")
-        .select("full_name, school_name, avatar_url")
+        .select("full_name, school_name, avatar_url, faculty, department, level")
         .eq("id", currentUser.id)
         .single();
 
@@ -417,14 +624,29 @@
       nameEl.textContent = data.full_name;
       schoolEl.textContent = data.school_name || "";
       editNameInput.value = data.full_name;
+      wrap.querySelector("#edit-faculty").value = data.faculty || "";
+      wrap.querySelector("#edit-department").value = data.department || "";
+      wrap.querySelector("#edit-level").value = data.level || "";
       paintAvatar(data.avatar_url, data.full_name);
+
+      const { data: myInterests } = await supabaseClient
+        .from("profile_interests")
+        .select("interest_id")
+        .eq("profile_id", currentUser.id);
+
+      savedInterestIds = (myInterests || []).map(function (r) { return r.interest_id; });
     }
 
     loadProfile();
 
-    editToggle.addEventListener("click", function () {
+    editToggle.addEventListener("click", async function () {
       editForm.hidden = false;
       displayCard.hidden = true;
+      const interestsContainer = wrap.querySelector("#edit-interests-container");
+      interestPicker = await renderInterestPicker(interestsContainer, {
+        max: 5,
+        selectedIds: savedInterestIds,
+      });
     });
 
     wrap.querySelector("#edit-cancel").addEventListener("click", function () {
@@ -487,10 +709,45 @@
         newAvatarUrl = publicUrlData.publicUrl + "?t=" + Date.now();
       }
 
+      const newFaculty = wrap.querySelector("#edit-faculty").value.trim();
+      const newDepartment = wrap.querySelector("#edit-department").value.trim();
+      const newLevel = wrap.querySelector("#edit-level").value.trim();
+
       const { error: updateError } = await supabaseClient
         .from("profiles")
-        .update({ full_name: newName, avatar_url: newAvatarUrl })
+        .update({
+          full_name: newName,
+          avatar_url: newAvatarUrl,
+          faculty: newFaculty || null,
+          department: newDepartment || null,
+          level: newLevel || null,
+        })
         .eq("id", currentUser.id);
+
+      // Save interest changes: insert newly picked ones, remove
+      // unpicked ones. New picks trigger the auto-join-groups trigger
+      // on the database side automatically.
+      if (interestPicker) {
+        const newSelection = interestPicker.getSelected();
+        const toAdd = newSelection.filter(function (id) { return savedInterestIds.indexOf(id) === -1; });
+        const toRemove = savedInterestIds.filter(function (id) { return newSelection.indexOf(id) === -1; });
+
+        if (toAdd.length > 0) {
+          await supabaseClient.from("profile_interests").insert(
+            toAdd.map(function (interestId) {
+              return { profile_id: currentUser.id, interest_id: interestId };
+            })
+          );
+        }
+        if (toRemove.length > 0) {
+          await supabaseClient
+            .from("profile_interests")
+            .delete()
+            .eq("profile_id", currentUser.id)
+            .in("interest_id", toRemove);
+        }
+        savedInterestIds = newSelection;
+      }
 
       submitBtn.disabled = false;
       submitBtn.textContent = "Save";
@@ -507,6 +764,150 @@
       editForm.hidden = true;
       displayCard.hidden = false;
     });
+
+    // ---------- My groups ----------
+
+    const profileMain = wrap.querySelector("#profile-main");
+    const groupsView = wrap.querySelector("#groups-view");
+
+    wrap.querySelector("#my-groups-link").addEventListener("click", function (e) {
+      e.preventDefault();
+      profileMain.hidden = true;
+      groupsView.hidden = false;
+      renderGroupsList(groupsView);
+    });
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str || "";
+      return div.innerHTML;
+    }
+
+    async function renderGroupsList(container) {
+      container.innerHTML =
+        '<a href="#" class="back-link" id="groups-back">\u2190 Back to profile</a>' +
+        '<div class="view-heading"><h2>My groups</h2><p>Auto-joined based on your interests.</p></div>' +
+        '<div id="groups-list"><p class="empty-state">Loading...</p></div>';
+
+      container.querySelector("#groups-back").addEventListener("click", function (e) {
+        e.preventDefault();
+        groupsView.hidden = true;
+        profileMain.hidden = false;
+      });
+
+      const listEl = container.querySelector("#groups-list");
+      const { data: userRes } = await supabaseClient.auth.getUser();
+      const user = userRes.user;
+
+      const { data, error } = await supabaseClient
+        .from("group_members")
+        .select("group_id, groups(id, name, description)")
+        .eq("profile_id", user.id);
+
+      if (error) {
+        listEl.innerHTML = '<p class="empty-state">Couldn\u2019t load your groups right now.</p>';
+        return;
+      }
+
+      const groups = (data || []).map(function (row) { return row.groups; }).filter(Boolean);
+
+      if (groups.length === 0) {
+        listEl.innerHTML = '<p class="empty-state">No groups yet — pick some interests in Edit profile and you\u2019ll be added automatically.</p>';
+        return;
+      }
+
+      listEl.innerHTML = "";
+      groups.forEach(function (group) {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "group-card";
+        card.innerHTML =
+          '<p class="group-name">' + escapeHtml(group.name) + '</p>' +
+          '<p class="group-description">' + escapeHtml(group.description || "") + '</p>';
+        card.addEventListener("click", function () {
+          renderGroupDetail(groupsView, group);
+        });
+        listEl.appendChild(card);
+      });
+    }
+
+    async function renderGroupDetail(container, group) {
+      container.innerHTML =
+        '<a href="#" class="back-link" id="group-detail-back">\u2190 Back to my groups</a>' +
+        '<div class="view-heading"><h2>' + escapeHtml(group.name) + '</h2><p>' + escapeHtml(group.description || "") + '</p></div>' +
+        '<form class="group-post-form" id="group-post-form">' +
+          '<textarea id="group-post-text" placeholder="Post something to this group..." required></textarea>' +
+          '<button type="submit" class="btn btn-primary btn-sm">Post</button>' +
+        '</form>' +
+        '<div id="group-posts-list"><p class="empty-state">Loading posts...</p></div>';
+
+      container.querySelector("#group-detail-back").addEventListener("click", function (e) {
+        e.preventDefault();
+        renderGroupsList(groupsView);
+      });
+
+      const postsList = container.querySelector("#group-posts-list");
+
+      async function loadGroupPosts() {
+        const { data, error } = await supabaseClient
+          .from("posts")
+          .select("id, content, created_at, author_id, profiles(full_name)")
+          .eq("group_id", group.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          postsList.innerHTML = '<p class="empty-state">Couldn\u2019t load posts right now.</p>';
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          postsList.innerHTML = '<p class="empty-state">No posts yet — be the first to post here.</p>';
+          return;
+        }
+
+        postsList.innerHTML = "";
+        data.forEach(function (post) {
+          const card = document.createElement("div");
+          card.className = "feed-card";
+          const authorName = post.profiles ? post.profiles.full_name : "Member";
+          card.innerHTML =
+            '<p class="feed-author">' + escapeHtml(authorName) + '</p>' +
+            '<p class="feed-text">' + escapeHtml(post.content) + '</p>';
+          postsList.appendChild(card);
+        });
+      }
+
+      loadGroupPosts();
+
+      container.querySelector("#group-post-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const textarea = container.querySelector("#group-post-text");
+        const content = textarea.value.trim();
+        if (!content) return;
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Posting...";
+
+        const { data: userRes } = await supabaseClient.auth.getUser();
+
+        const { error } = await supabaseClient.from("posts").insert({
+          author_id: userRes.user.id,
+          content: content,
+          group_id: group.id,
+          category: "general",
+        });
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Post";
+
+        if (!error) {
+          textarea.value = "";
+          loadGroupPosts();
+        }
+      });
+    }
 
     return wrap;
   }

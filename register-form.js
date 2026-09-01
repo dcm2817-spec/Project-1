@@ -61,7 +61,8 @@
   function validateEmail() {
     const el = document.getElementById("email-error");
     const val = email.value.trim();
-    if (val && !EMAIL_RE.test(val)) {
+    if (!val) return (setError(email, el, "Enter your email — needed for password reset"), false);
+    if (!EMAIL_RE.test(val)) {
       setError(email, el, "That email doesn't look right");
       return false;
     }
@@ -130,20 +131,16 @@
     submitBtn.textContent = "Creating account...";
 
     const phoneValue = phone.value.trim();
-    // Supabase Auth needs an email internally — phone is the identifier
-    // the user actually sees and types, so we synthesize a stable
-    // internal email from it. Real optional email is stored separately
-    // on the profile via raw_user_meta_data.real_email.
-    const authEmail = phoneValue + "@universe.local";
+    const realEmail = email.value.trim();
 
     const { data, error } = await supabaseClient.auth.signUp({
-      email: authEmail,
+      email: realEmail,
       password: password.value,
       options: {
         data: {
           full_name: fullname.value.trim(),
           phone: phoneValue,
-          real_email: email.value.trim() || null,
+          real_email: realEmail,
           school_id: schoolValue.value,
           school_name: schoolSearch.value,
         },
@@ -161,6 +158,6 @@
 
     // Account created — the handle_new_user trigger in Supabase has
     // already inserted the matching row into public.profiles.
-    window.location.href = "app.html";
+    window.location.href = "onboarding.html";
   });
 })();

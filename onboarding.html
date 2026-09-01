@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pick your interests — uniVERSE</title>
+<meta name="description" content="Pick up to 5 interests to personalize uniVERSE.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a href="index.html" class="wordmark" aria-label="uniVERSE home">
+    <span class="u">u</span><span class="n">n</span><span class="i">i</span><span class="v-cap">V</span><span class="rest">erse</span>
+  </a>
+</header>
+
+<main class="auth-wrap" style="max-width: 560px;">
+  <section class="auth-card">
+    <span class="eyebrow">one quick thing</span>
+    <h1 class="auth-title">What are you into?</h1>
+    <p class="auth-sub">Pick up to 5. This personalizes your feed and connects you with matching groups — you can change these anytime in Profile.</p>
+
+    <div id="interest-picker-container"></div>
+
+    <div class="onboarding-actions">
+      <button type="button" class="btn btn-ghost btn-block" id="skip-btn">Skip for now</button>
+      <button type="button" class="btn btn-primary btn-block" id="continue-btn">Continue</button>
+    </div>
+    <p class="field-error" id="onboarding-error"></p>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-box">
+    <div class="footer-meta">
+      <div class="footer-copyright">Copyright &copy; 2027 uniVERSE. All Rights Reserved.</div>
+      08xxxxxxxxx · 09xxxxxxxxx
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-client.js"></script>
+<script src="interest-picker.js"></script>
+<script src="onboarding.js"></script>
+</body>
+</html>

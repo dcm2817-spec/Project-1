@@ -359,6 +359,13 @@ button, input {
   padding-right: 34px;
 }
 
+.onboarding-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
 .forgot-link {
   display: block;
   text-align: right;
@@ -462,6 +469,55 @@ button, input {
   font-size: 13px;
   color: var(--ink-soft);
   font-style: italic;
+}
+
+.interest-counter {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--wine);
+  margin-bottom: 14px;
+}
+
+.interest-category {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 16px 0 8px;
+}
+
+.interest-category:first-of-type {
+  margin-top: 0;
+}
+
+.interest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.interest-chip {
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--card-line);
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.interest-chip.is-selected {
+  background: var(--oxblood);
+  border-color: var(--oxblood);
+  color: var(--bg);
+}
+
+.interest-chip.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ---------- Footer ---------- */
