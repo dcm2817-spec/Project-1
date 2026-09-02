@@ -747,11 +747,12 @@
           '<a href="#" class="profile-link">Saved materials</a>' +
           '<a href="#" class="profile-link">My connections</a>' +
           '<a href="#" class="profile-link" id="my-groups-link">My groups</a>' +
-          '<a href="#" class="profile-link">Settings</a>' +
+          '<a href="#" class="profile-link" id="settings-link">Settings</a>' +
           '<a href="login.html" id="logout-link" class="profile-link profile-link-danger">Log out</a>' +
         '</div>' +
       '</div>' +
-      '<div id="groups-view" hidden></div>';
+      '<div id="groups-view" hidden></div>' +
+      '<div id="settings-view" hidden></div>';
 
     const nameEl = wrap.querySelector("#profile-name");
     const schoolEl = wrap.querySelector("#profile-school-display");
@@ -1079,6 +1080,171 @@
       });
     }
 
+    // ---------- Settings ----------
+
+    const settingsView = wrap.querySelector("#settings-view");
+
+    wrap.querySelector("#settings-link").addEventListener("click", function (e) {
+      e.preventDefault();
+      profileMain.hidden = true;
+      settingsView.hidden = false;
+      renderSettings(settingsView);
+    });
+
+    async function renderSettings(container) {
+      const { data: userRes } = await supabaseClient.auth.getUser();
+      const user = userRes.user;
+
+      container.innerHTML =
+        '<a href="#" class="back-link" id="settings-back">\u2190 Back to profile</a>' +
+        '<div class="view-heading"><h2>Settings</h2></div>' +
+
+        '<h3 class="connect-subheading">Email</h3>' +
+        '<form class="upload-form" id="email-form">' +
+          '<label class="field">' +
+            '<span class="field-label">Current email</span>' +
+            '<input type="text" value="' + escapeHtml(user.email) + '" disabled>' +
+          '</label>' +
+          '<label class="field">' +
+            '<span class="field-label">New email</span>' +
+            '<input type="email" id="new-email" placeholder="new@example.com" required>' +
+            '<span class="field-error" id="new-email-error"></span>' +
+          '</label>' +
+          '<p class="field-hint">You\u2019ll get a confirmation link at the new address \u2014 the change only takes effect once you click it.</p>' +
+          '<div class="upload-actions">' +
+            '<button type="submit" class="btn btn-primary btn-sm">Update email</button>' +
+          '</div>' +
+        '</form>' +
+
+        '<h3 class="connect-subheading">Password</h3>' +
+        '<form class="upload-form" id="password-form">' +
+          '<label class="field">' +
+            '<span class="field-label">New password</span>' +
+            '<input type="password" id="new-password" placeholder="At least 8 characters" required minlength="8">' +
+            '<span class="field-error" id="new-password-error"></span>' +
+          '</label>' +
+          '<label class="field">' +
+            '<span class="field-label">Confirm new password</span>' +
+            '<input type="password" id="confirm-new-password" placeholder="Re-enter new password" required minlength="8">' +
+            '<span class="field-hint" id="confirm-new-password-hint"></span>' +
+          '</label>' +
+          '<div class="upload-actions">' +
+            '<button type="submit" class="btn btn-primary btn-sm">Update password</button>' +
+          '</div>' +
+        '</form>' +
+
+        '<h3 class="connect-subheading">Sessions</h3>' +
+        '<p class="field-hint" style="margin-bottom: 10px;">If you think someone else might have access to your account, sign out everywhere at once.</p>' +
+        '<button type="button" class="btn btn-ghost btn-sm" id="signout-everywhere-btn">Log out of all devices</button>' +
+        '<p class="field-hint" id="signout-everywhere-msg"></p>';
+
+      container.querySelector("#settings-back").addEventListener("click", function (e) {
+        e.preventDefault();
+        settingsView.hidden = true;
+        profileMain.hidden = false;
+      });
+
+      // Change email
+      container.querySelector("#email-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const newEmailInput = container.querySelector("#new-email");
+        const errorEl = container.querySelector("#new-email-error");
+        errorEl.textContent = "";
+
+        const newEmail = newEmailInput.value.trim();
+        if (!newEmail) {
+          errorEl.textContent = "Enter a new email";
+          return;
+        }
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Updating...";
+
+        const { error } = await supabaseClient.auth.updateUser({ email: newEmail });
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Update email";
+
+        if (error) {
+          errorEl.textContent = "Something went wrong: " + error.message;
+          return;
+        }
+
+        newEmailInput.value = "";
+        errorEl.textContent = "";
+        errorEl.classList.remove("field-error");
+        errorEl.classList.add("field-hint", "is-match");
+        errorEl.textContent = "Check your new email for a confirmation link.";
+      });
+
+      // Change password
+      const newPasswordInput = container.querySelector("#new-password");
+      const confirmPasswordInput = container.querySelector("#confirm-new-password");
+      const confirmHint = container.querySelector("#confirm-new-password-hint");
+
+      confirmPasswordInput.addEventListener("input", function () {
+        if (!confirmPasswordInput.value) {
+          confirmHint.textContent = "";
+          return;
+        }
+        const matches = confirmPasswordInput.value === newPasswordInput.value;
+        confirmHint.textContent = matches ? "Passwords match" : "Passwords don't match yet";
+        confirmHint.classList.toggle("is-match", matches);
+      });
+
+      container.querySelector("#password-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const errorEl = container.querySelector("#new-password-error");
+        errorEl.textContent = "";
+
+        if (newPasswordInput.value.length < 8) {
+          errorEl.textContent = "Use at least 8 characters";
+          return;
+        }
+        if (newPasswordInput.value !== confirmPasswordInput.value) {
+          errorEl.textContent = "Passwords don't match";
+          return;
+        }
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Updating...";
+
+        const { error } = await supabaseClient.auth.updateUser({ password: newPasswordInput.value });
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Update password";
+
+        if (error) {
+          errorEl.textContent = "Something went wrong: " + error.message;
+          return;
+        }
+
+        newPasswordInput.value = "";
+        confirmPasswordInput.value = "";
+        confirmHint.textContent = "";
+        errorEl.classList.remove("field-error");
+        errorEl.classList.add("field-hint", "is-match");
+        errorEl.textContent = "Password updated.";
+      });
+
+      // Sign out everywhere
+      container.querySelector("#signout-everywhere-btn").addEventListener("click", async function () {
+        const btn = container.querySelector("#signout-everywhere-btn");
+        const msgEl = container.querySelector("#signout-everywhere-msg");
+        btn.disabled = true;
+        btn.textContent = "Signing out everywhere...";
+
+        await supabaseClient.auth.signOut({ scope: "global" });
+
+        msgEl.textContent = "Signed out everywhere. Redirecting to log in...";
+        setTimeout(function () { window.location.href = "login.html"; }, 1200);
+      });
+    }
+
     return wrap;
   }
 
@@ -1091,6 +1257,119 @@
       });
     }
   });
+
+  // ---------- Notifications (header bell) ----------
+
+  const notifBtn = document.getElementById("notif-btn");
+  const notifBadge = document.getElementById("notif-badge");
+  const notifPanel = document.getElementById("notif-panel");
+
+  function notifTimeAgo(dateStr) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    return Math.floor(hrs / 24) + "d ago";
+  }
+
+  async function refreshNotifBadge() {
+    const { data: userRes } = await supabaseClient.auth.getUser();
+    const user = userRes.user;
+    if (!user) return;
+
+    const { count } = await supabaseClient
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_id", user.id)
+      .eq("is_read", false);
+
+    if (count && count > 0) {
+      notifBadge.textContent = count > 9 ? "9+" : String(count);
+      notifBadge.hidden = false;
+    } else {
+      notifBadge.hidden = true;
+    }
+  }
+
+  async function loadNotifPanel() {
+    notifPanel.innerHTML =
+      '<div class="notif-panel-header">' +
+        '<h4>Notifications</h4>' +
+        '<button type="button" class="notif-mark-all" id="notif-mark-all">Mark all read</button>' +
+      '</div>' +
+      '<div id="notif-items"><p class="empty-state">Loading...</p></div>';
+
+    const { data: userRes } = await supabaseClient.auth.getUser();
+    const user = userRes.user;
+    const itemsEl = notifPanel.querySelector("#notif-items");
+
+    const { data, error } = await supabaseClient
+      .from("notifications")
+      .select("id, type, content, is_read, created_at")
+      .eq("recipient_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error) {
+      itemsEl.innerHTML = '<p class="empty-state">Couldn\u2019t load notifications.</p>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      itemsEl.innerHTML = '<p class="empty-state">No notifications yet.</p>';
+      return;
+    }
+
+    itemsEl.innerHTML = "";
+    data.forEach(function (n) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "notif-item" + (n.is_read ? "" : " is-unread");
+      item.innerHTML =
+        '<p class="notif-item-text">' + n.content + '</p>' +
+        '<p class="notif-item-time">' + notifTimeAgo(n.created_at) + '</p>';
+
+      item.addEventListener("click", async function () {
+        if (!n.is_read) {
+          await supabaseClient.from("notifications").update({ is_read: true }).eq("id", n.id);
+          item.classList.remove("is-unread");
+          n.is_read = true;
+          refreshNotifBadge();
+        }
+      });
+
+      itemsEl.appendChild(item);
+    });
+
+    notifPanel.querySelector("#notif-mark-all").addEventListener("click", async function () {
+      await supabaseClient
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("recipient_id", user.id)
+        .eq("is_read", false);
+      notifPanel.querySelectorAll(".notif-item.is-unread").forEach(function (el) {
+        el.classList.remove("is-unread");
+      });
+      refreshNotifBadge();
+    });
+  }
+
+  notifBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    const isHidden = notifPanel.hidden;
+    notifPanel.hidden = !isHidden;
+    if (isHidden) loadNotifPanel();
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!notifPanel.hidden && !e.target.closest(".notif-wrap")) {
+      notifPanel.hidden = true;
+    }
+  });
+
+  refreshNotifBadge();
 
   // Initial view
   showView("feed");
