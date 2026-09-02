@@ -45,39 +45,209 @@
     const wrap = document.createElement("div");
     wrap.className = "view-inner";
 
-    const banner = document.createElement("div");
-    banner.className = "join-banner";
-    banner.textContent = "Join 3,000+ students already on uniVERSE";
-    wrap.appendChild(banner);
+    wrap.innerHTML =
+      '<form class="group-post-form" id="feed-post-form">' +
+        '<textarea id="feed-post-text" placeholder="Share something with your campus..." required></textarea>' +
+        '<button type="submit" class="btn btn-primary btn-sm">Post</button>' +
+      '</form>' +
+      '<div id="feed-list"><p class="empty-state">Loading feed...</p></div>';
 
-    SEED_FEED.forEach(function (post) {
-      const card = document.createElement("article");
-      card.className = "feed-card";
-      card.innerHTML =
-        '<div class="feed-card-top">' +
-          '<span class="feed-tag feed-tag-' + post.type + '">' + labelForType(post.type) + '</span>' +
-          '<span class="feed-school">' + post.school + '</span>' +
-        '</div>' +
-        '<p class="feed-author">' + post.author + ' <span class="feed-time">· ' + post.time + '</span></p>' +
-        '<p class="feed-text">' + post.text + '</p>' +
-        '<p class="feed-meta">' + post.meta + '</p>' +
-        '<div class="feed-actions">' +
-          '<span>&#9825; ' + post.likes + '</span>' +
-          '<span>&#128172; ' + post.comments + '</span>' +
-        '</div>';
-      wrap.appendChild(card);
+    const feedList = wrap.querySelector("#feed-list");
+    let currentUser = null;
+    let mySchoolId = null;
+    let likedPostIds = new Set();
+    let likeCounts = {};
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str || "";
+      return div.innerHTML;
+    }
+
+    function timeAgo(dateStr) {
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return mins + "m";
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + "h";
+      return Math.floor(hrs / 24) + "d";
+    }
+
+    async function loadFeed() {
+      const { data: userRes } = await supabaseClient.auth.getUser();
+      currentUser = userRes.user;
+      if (!currentUser) return;
+
+      const { data: myProfile } = await supabaseClient
+        .from("profiles")
+        .select("school_id")
+        .eq("id", currentUser.id)
+        .single();
+
+      mySchoolId = myProfile ? myProfile.school_id : null;
+
+      const { data: posts } = await supabaseClient
+        .from("posts")
+        .select("id, content, created_at, author_id, profiles(full_name)")
+        .is("group_id", null)
+        .eq("school_id", mySchoolId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const { data: materials } = await supabaseClient
+        .from("materials")
+        .select("id, title, course_code, created_at")
+        .eq("school_id", mySchoolId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const postItems = (posts || []).map(function (p) {
+        return {
+          kind: "post",
+          id: p.id,
+          author: p.profiles ? p.profiles.full_name : "Member",
+          content: p.content,
+          created_at: p.created_at,
+        };
+      });
+
+      const materialItems = (materials || []).map(function (m) {
+        return {
+          kind: "material",
+          id: m.id,
+          title: m.title,
+          course: m.course_code,
+          created_at: m.created_at,
+        };
+      });
+
+      const combined = postItems.concat(materialItems).sort(function (a, b) {
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+
+      const postIds = postItems.map(function (p) { return p.id; });
+      if (postIds.length > 0) {
+        const { data: reactions } = await supabaseClient
+          .from("post_reactions")
+          .select("post_id, profile_id")
+          .in("post_id", postIds)
+          .eq("type", "like");
+
+        likeCounts = {};
+        likedPostIds = new Set();
+        (reactions || []).forEach(function (r) {
+          likeCounts[r.post_id] = (likeCounts[r.post_id] || 0) + 1;
+          if (r.profile_id === currentUser.id) likedPostIds.add(r.post_id);
+        });
+      }
+
+      renderList(combined);
+    }
+
+    function renderList(items) {
+      feedList.innerHTML = "";
+
+      if (items.length === 0) {
+        feedList.innerHTML = '<p class="empty-state">Nothing here yet — be the first to post on your campus.</p>';
+        return;
+      }
+
+      items.forEach(function (item) {
+        const card = document.createElement("article");
+        card.className = "feed-card";
+
+        if (item.kind === "material") {
+          card.innerHTML =
+            '<div class="feed-card-top">' +
+              '<span class="feed-tag feed-tag-material">New material</span>' +
+              '<span class="feed-school">' + timeAgo(item.created_at) + '</span>' +
+            '</div>' +
+            '<p class="feed-text">' + escapeHtml(item.title) + '</p>' +
+            '<p class="feed-meta">' + escapeHtml(item.course || "General") + '</p>';
+          feedList.appendChild(card);
+          return;
+        }
+
+        const isLiked = likedPostIds.has(item.id);
+        const count = likeCounts[item.id] || 0;
+
+        card.innerHTML =
+          '<div class="feed-card-top">' +
+            '<span class="feed-tag feed-tag-discussion">Post</span>' +
+            '<span class="feed-school">' + timeAgo(item.created_at) + '</span>' +
+          '</div>' +
+          '<p class="feed-author">' + escapeHtml(item.author) + '</p>' +
+          '<p class="feed-text">' + escapeHtml(item.content) + '</p>' +
+          '<div class="feed-actions">' +
+            '<button type="button" class="like-btn' + (isLiked ? ' is-liked' : '') + '" data-post-id="' + item.id + '">' +
+              (isLiked ? '&#9829;' : '&#9825;') + ' <span class="like-count">' + count + '</span>' +
+            '</button>' +
+          '</div>';
+
+        card.querySelector(".like-btn").addEventListener("click", function () {
+          toggleLike(item.id, card.querySelector(".like-btn"));
+        });
+
+        feedList.appendChild(card);
+      });
+    }
+
+    async function toggleLike(postId, btn) {
+      const isLiked = likedPostIds.has(postId);
+
+      if (isLiked) {
+        likedPostIds.delete(postId);
+        likeCounts[postId] = Math.max(0, (likeCounts[postId] || 1) - 1);
+        await supabaseClient
+          .from("post_reactions")
+          .delete()
+          .eq("post_id", postId)
+          .eq("profile_id", currentUser.id)
+          .eq("type", "like");
+      } else {
+        likedPostIds.add(postId);
+        likeCounts[postId] = (likeCounts[postId] || 0) + 1;
+        await supabaseClient
+          .from("post_reactions")
+          .insert({ post_id: postId, profile_id: currentUser.id, type: "like" });
+      }
+
+      btn.classList.toggle("is-liked", likedPostIds.has(postId));
+      btn.innerHTML = (likedPostIds.has(postId) ? '&#9829;' : '&#9825;') + ' <span class="like-count">' + likeCounts[postId] + '</span>';
+    }
+
+    wrap.querySelector("#feed-post-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const textarea = wrap.querySelector("#feed-post-text");
+      const content = textarea.value.trim();
+      if (!content || !currentUser) return;
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Posting...";
+
+      const { error } = await supabaseClient.from("posts").insert({
+        author_id: currentUser.id,
+        content: content,
+        group_id: null,
+        category: "general",
+        school_id: mySchoolId,
+      });
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Post";
+
+      if (!error) {
+        textarea.value = "";
+        loadFeed();
+      }
     });
 
-    return wrap;
-  }
+    loadFeed();
 
-  function labelForType(type) {
-    return {
-      material: "New material",
-      discussion: "Discussion",
-      event: "Event",
-      group: "Group",
-    }[type] || "Update";
+    return wrap;
   }
 
   // ---------- Materials ----------

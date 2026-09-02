@@ -181,6 +181,22 @@
   margin-bottom: 10px;
 }
 
+.like-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.like-btn.is-liked {
+  color: var(--wine);
+}
+
 .feed-actions {
   display: flex;
   gap: 18px;
